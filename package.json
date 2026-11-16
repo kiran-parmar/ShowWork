@@ -1,0 +1,17 @@
+{
+  "name": "showwork",
+  "private": true,
+  "description": "A data-analysis agent that shows its work.",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "sample-data": "npm run sample-data -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}

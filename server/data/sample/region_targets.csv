@@ -1,0 +1,16 @@
+region,year,revenue_target
+Northeast,2023,624000
+Northeast,2024,736320
+Northeast,2025,848640
+Southeast,2023,468000
+Southeast,2024,552240
+Southeast,2025,636480
+Midwest,2023,416000
+Midwest,2024,490880
+Midwest,2025,565760
+Southwest,2023,520000
+Southwest,2024,613600
+Southwest,2025,707200
+West,2023,676000
+West,2024,797680
+West,2025,919360
