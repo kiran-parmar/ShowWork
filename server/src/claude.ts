@@ -24,7 +24,7 @@ export function hasInvalidModelSetting(): boolean {
 }
 
 /** Server-side refusal fallbacks exist for Opus and Sonnet, not Haiku. */
-function fallbackOptions(model: SupportedModel) {
+export function fallbackOptions(model: SupportedModel) {
   return model === "claude-haiku-5-5"
     ? {}
     : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
@@ -33,9 +33,26 @@ function fallbackOptions(model: SupportedModel) {
 let client: Anthropic | undefined;
 
 /** Created lazily so the server still starts (and explains the problem) when no key is set. */
-function getClient(): Anthropic {
+export function getClient(): Anthropic {
   client ??= new Anthropic();
   return client;
+}
+
+/** Turns SDK errors into messages a user can act on. */
+export function describeApiError(error: unknown): string {
+  if (error instanceof Anthropic.AuthenticationError) {
+    return "The API key was rejected. Check ANTHROPIC_API_KEY in .env.";
+  }
+  if (error instanceof Anthropic.PermissionDeniedError) {
+    return "This key doesn't have access to the model. Check your Console account and billing.";
+  }
+  if (error instanceof Anthropic.RateLimitError) {
+    return "Rate limited (or spend limit reached). Try again shortly.";
+  }
+  if (error instanceof Anthropic.APIError) {
+    return `Claude API error ${error.status}: ${error.message}`;
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 export type ClaudeCheck =
@@ -85,18 +102,6 @@ export async function checkClaude(): Promise<ClaudeCheck> {
       ms: Date.now() - started,
     };
   } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      return { ok: false, error: "The API key was rejected. Check ANTHROPIC_API_KEY in .env." };
-    }
-    if (error instanceof Anthropic.PermissionDeniedError) {
-      return { ok: false, error: "This key doesn't have access to the model. Check your Console account and billing." };
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return { ok: false, error: "Rate limited (or spend limit reached). Try again shortly." };
-    }
-    if (error instanceof Anthropic.APIError) {
-      return { ok: false, error: `Claude API error ${error.status}: ${error.message}` };
-    }
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    return { ok: false, error: describeApiError(error) };
   }
 }

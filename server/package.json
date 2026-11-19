@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "tsx watch --include ../.env src/index.ts",
     "typecheck": "tsc --noEmit",
-    "sample-data": "tsx scripts/make-sample-data.ts"
+    "sample-data": "tsx scripts/make-sample-data.ts",
+    "test:guard": "tsx scripts/test-sql-guard.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

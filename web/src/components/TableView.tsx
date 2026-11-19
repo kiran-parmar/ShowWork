@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type TableDetail } from "../api";
-
-const NUMERIC_TYPES = ["TINYINT", "SMALLINT", "INTEGER", "BIGINT", "HUGEINT", "FLOAT", "DOUBLE", "DECIMAL"];
+import { formatCell, isNumericType } from "../lib/format";
 
 /** Shows one table's columns and first rows. Reloads whenever `name` changes. */
 export function TableView({ name }: { name: string }) {
@@ -72,15 +71,4 @@ export function TableView({ name }: { name: string }) {
       </div>
     </div>
   );
-}
-
-function formatCell(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
-function isNumericType(type: string): boolean {
-  // "DECIMAL(10,2)" -> "DECIMAL"
-  return NUMERIC_TYPES.includes(type.split("(")[0]!.toUpperCase());
 }

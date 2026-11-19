@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type TableSummary } from "./api";
 import { ConnectionCheck } from "./components/ConnectionCheck";
+import { RunPanel } from "./components/RunPanel";
 import { TableList } from "./components/TableList";
 import { TableView } from "./components/TableView";
 
@@ -12,6 +13,7 @@ export default function App() {
   const [tables, setTables] = useState<TableSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"ask" | "data">("ask");
 
   // useCallback keeps the same function between renders, so it's safe to use in useEffect.
   const refreshTables = useCallback(async () => {
@@ -53,6 +55,12 @@ export default function App() {
   async function handleUploaded(table: string) {
     await refreshTables();
     setSelected(table);
+    setTab("data");
+  }
+
+  function handleSelect(table: string) {
+    setSelected(table);
+    setTab("data");
   }
 
   return (
@@ -69,10 +77,24 @@ export default function App() {
 
       <main className="app-main">
         <aside className="sidebar">
-          <TableList tables={tables} selected={selected} onSelect={setSelected} onUploaded={handleUploaded} />
+          <TableList tables={tables} selected={selected} onSelect={handleSelect} onUploaded={handleUploaded} />
         </aside>
         <section className="content">
-          {selected ? <TableView name={selected} /> : <p className="muted">Upload a CSV to get started.</p>}
+          <nav className="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === "ask"} className={tab === "ask" ? "tab active" : "tab"} onClick={() => setTab("ask")}>
+              Ask
+            </button>
+            <button role="tab" aria-selected={tab === "data"} className={tab === "data" ? "tab active" : "tab"} onClick={() => setTab("data")}>
+              Browse data
+            </button>
+          </nav>
+          {/* Both tabs stay mounted (hidden, not removed) so a run in progress keeps streaming while you browse. */}
+          <div hidden={tab !== "ask"}>
+            <RunPanel />
+          </div>
+          <div hidden={tab !== "data"}>
+            {selected ? <TableView name={selected} /> : <p className="muted">Upload a CSV to get started.</p>}
+          </div>
         </section>
       </main>
     </div>

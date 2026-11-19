@@ -8,9 +8,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describeTable, initDb, listTables, loadCsv, loadCsvFolder, toTableName } from "./db.js";
 import { checkClaude, getModel, hasInvalidModelSetting, SUPPORTED_MODELS } from "./claude.js";
+import { getRun, isRunActive, startRun, subscribe } from "./agent/run.js";
+import { HEARTBEAT_MS } from "./agent/events.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: path.resolve(here, "../../.env"), quiet: true });
+loadEnv({ path: path.resolve(here, "../../.env"), quiet: true }); 
 
 const SAMPLE_DIR = path.resolve(here, "../data/sample");
 const UPLOAD_DIR = path.resolve(here, "../data/uploads");
@@ -19,7 +21,7 @@ const PORT = Number(process.env.API_PORT ?? 3001);
 
 const app = Fastify({ logger: { level: "info" } });
 if (hasInvalidModelSetting()) {
-  app.log.warn(`MODEL="${process.env.MODEL}" isn't supported (use one of: ${SUPPORTED_MODELS.join(", ")}). Using ${getModel()}.`);
+  app.log.warn(`MODEL="${process.env.MODEL}" isn't supported (use one of: ${SUPPORTED_MODELS.join(", ")}). Using ${getModel()}.`); 
 }
 app.log.info(`Claude model: ${getModel()}`);
 await app.register(multipart, { limits: { fileSize: 50 * 1024 * 1024, files: 1 } });
@@ -76,5 +78,49 @@ app.post("/api/tables/upload", async (request, reply) => {
 });
 
 app.get("/api/claude/check", async () => checkClaude());
+
+// --- Agent runs -------------------------------------------------------------
+
+app.post<{ Body: { question?: unknown } }>("/api/runs", async (request, reply) => {
+  const question = typeof request.body?.question === "string" ? request.body.question.trim() : "";
+  if (!question) return reply.code(400).send({ error: "Ask a question first." });
+  if (question.length > 2000) return reply.code(400).send({ error: "Keep the question under 2,000 characters." });
+  if (!process.env.ANTHROPIC_API_KEY) return reply.code(503).send({ error: "ANTHROPIC_API_KEY is not set in .env." });
+  if (isRunActive()) return reply.code(409).send({ error: "A run is already in progress. Wait for it to finish." });
+  return { runId: startRun(question) };
+});
+
+/**
+ * Server-Sent Events: a long-lived response the server keeps writing to.
+ * Each event is sent as `id: <seq>` + `data: <json>`. If the connection drops,
+ * the browser reconnects with a Last-Event-ID header and we resume from there.
+ */
+app.get<{ Params: { id: string } }>("/api/runs/:id/events", (request, reply) => {
+  if (!getRun(request.params.id)) return reply.code(404).send({ error: "No such run" });
+
+  const lastId = Number(request.headers["last-event-id"]);
+  reply.hijack(); // we write the raw response ourselves from here on
+  reply.raw.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  const unsubscribe = subscribe(
+    request.params.id,
+    (event) => reply.raw.write(`id: ${event.seq}\ndata: ${JSON.stringify(event)}\n\n`),
+    Number.isInteger(lastId) ? lastId : -1,
+  );
+  // Comment lines keep proxies from closing an idle connection while the model is thinking.
+  // A heartbeat every 15 s, even while the model or a query is slow. It's a named
+  // "ping" event, not an SSE comment (": ..."), because the browser drops comments
+  // before page code sees them. The page treats a long silence as "this run is gone".
+  // It also stops proxies from closing an idle connection.
+  const heartbeat = setInterval(() => reply.raw.write("event: ping\ndata: {}\n\n"), HEARTBEAT_MS);
+  request.raw.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
+});
 
 await app.listen({ port: PORT, host: "127.0.0.1" });

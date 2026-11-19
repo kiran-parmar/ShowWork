@@ -6,11 +6,22 @@ import path from "node:path";
  * In-process DuckDB. Each CSV becomes a table; the agent (from Day 2) will
  * query these tables through tools that call the functions below.
  */
+let instance: DuckDBInstance | undefined;
 let connection: DuckDBConnection | undefined;
 
 export async function initDb(): Promise<void> {
-  const instance = await DuckDBInstance.create(":memory:");
+  instance = await DuckDBInstance.create(":memory:");
   connection = await instance.connect();
+}
+
+/**
+ * A separate connection to the same database, for agent queries. Using its own
+ * connection means we can interrupt a slow agent query without cancelling
+ * anything the UI is doing on the main connection.
+ */
+export async function openQueryConnection(): Promise<DuckDBConnection> {
+  if (!instance) throw new Error("Database not initialised. Call initDb() first.");
+  return instance.connect();
 }
 
 function db(): DuckDBConnection {

@@ -4,11 +4,11 @@
 
 Ask a question about your CSV data in plain English. ShowWork's agent plans the analysis, writes and runs SQL, and builds charts and a summary. You can inspect every step, approve risky actions, and steer the agent mid-run.
 
-> Status: Day 1. A dataset browser and Claude connection check are working; the agent arrives on Day 2.
+> Status: Day 2. The agent answers questions with read-only SQL, streaming every step live to an inspectable timeline. Plan approval, approval gates and steering come next.
 
 ## Run it locally
 
-Requirements: Node.js 22 or later is recommended (it runs on Node 20, with warnings).
+Requirements: Node.js 22 or later. The app runs on Node 20, but on Windows the VS Code debugger can't attach on Node 20.20.x, so breakpoints never bind.
 
 1. Install dependencies:
 
@@ -48,6 +48,7 @@ server/
   src/index.ts      HTTP routes
   src/db.ts         DuckDB: load CSVs, list and describe tables
   src/claude.ts     Claude API client
+  src/agent/        agent loop, tools, SQL safety guard, event types
   scripts/          sample data generator
   data/sample/      synthetic demo CSVs
 web/
